@@ -1,0 +1,86 @@
+Index: uaudio.c
+===================================================================
+RCS file: /cvs/src/sys/dev/usb/uaudio.c,v
+retrieving revision 1.181
+diff -u -p -r1.181 uaudio.c
+--- uaudio.c	18 Nov 2025 09:05:11 -0000	1.181
++++ uaudio.c	13 Jul 2026 09:43:41 -0000
+@@ -888,7 +888,7 @@ uaudio_ranges_getrates(struct uaudio_ran
+ 			v = (unsigned long long)uaudio_rates[i] * mult / div;
+ 			if (v < e->min || v > e->max)
+ 				continue;
+-			if (e->res == 0 || v - e->min % e->res == 0)
++			if (e->res == 0 || (v - e->min) % e->res == 0)
+ 				rates |= 1 << i;
+ 		}
+ 	}
+@@ -3552,46 +3552,42 @@ uaudio_psync_intr(struct usbd_xfer *usb_
+ 	struct uaudio_stream *s = &sc->pstream;
+ 	struct uaudio_xfer *xfer;
+ 	unsigned char *buf;
+-	unsigned int i;
+ 	int32_t val;
+ 
+-	if (status != 0) {
+-		DPRINTF("%s: xfer status = %d\n", __func__, status);
++	if (status == USBD_CANCELLED || !(sc->trigger_mode & AUMODE_PLAY)) {
+ 		return;
+ 	}
+ 
++	if (status != 0)
++		DPRINTF("%s: xfer status = %d\n", __func__, status);
++
+ 	xfer = s->sync_xfers + s->sync_nextxfer;
+ 	if (xfer->usb_xfer != usb_xfer) {
+ 		DPRINTF("%s: wrong xfer\n", __func__);
+ 		return;
+ 	}
+ 
+-	/* XXX: there's only one frame, the loop is not necessary */
+-
+ 	buf = xfer->buf;
+-	for (i = 0; i < xfer->nframes; i++) {
+-		if (xfer->sizes[i] == sc->sync_pktsz) {
+-			val = buf[0] | buf[1] << 8 | buf[2] << 16;
+-			if (sc->sync_pktsz == 4)
+-				val |= xfer->buf[3] << 24;
+-			else
+-				val <<= 2;
+-			val *= UAUDIO_SPF_DIV / (1 << 16);
+-#ifdef UAUDIO_DEBUG
+-			if (uaudio_debug >= 2) {
+-				getmicrotime(&tv);
+-				printf("%s: %llu.%06lu: spf: %08x\n",
+-				    __func__, tv.tv_sec, tv.tv_usec, val);
+-			}
+-#endif
+-			if (val > s->spf_max)
+-				s->spf = s->spf_max;
+-			else if (val < s->spf_min)
+-				s->spf = s->spf_min;
+-			else
+-				s->spf = val;
++	if (status == 0 && xfer->sizes[0] == sc->sync_pktsz) {
++		val = buf[0] | buf[1] << 8 | buf[2] << 16;
++		if (sc->sync_pktsz == 4)
++			val |= xfer->buf[3] << 24;
++		else
++			val <<= 2;
++		val *= UAUDIO_SPF_DIV / (1 << 16);
++#ifdef UAUDIO_DEBUG
++		if (uaudio_debug >= 2) {
++			getmicrotime(&tv);
++			printf("%s: %llu.%06lu: spf: %08x\n",
++			    __func__, tv.tv_sec, tv.tv_usec, val);
+ 		}
+-		buf += sc->sync_pktsz;
++#endif
++		if (val > s->spf_max)
++			s->spf = s->spf_max;
++		else if (val < s->spf_min)
++			s->spf = s->spf_min;
++		else
++			s->spf = val;
+ 	}
+ 
+ 	uaudio_psync_xfer(sc);

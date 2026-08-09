@@ -1,0 +1,133 @@
+Index: xhci.c
+===================================================================
+RCS file: /cvs/src/sys/dev/usb/xhci.c,v
+retrieving revision 1.136
+diff -u -p -r1.136 xhci.c
+--- xhci.c	1 Mar 2025 14:43:03 -0000	1.136
++++ xhci.c	19 Jul 2026 17:25:24 -0000
+@@ -119,6 +119,10 @@ int	xhci_cmd_set_address(struct xhci_sof
+ int	xhci_cmd_noop(struct xhci_softc *);
+ #endif
+ 
++usbd_status	xhci_port_wait_bit(struct xhci_softc *, uint32_t, uint32_t);
++usbd_status	xhci_port_wait_u0(struct xhci_softc *, uint32_t);
++usbd_status	xhci_reset_port(struct xhci_softc *, int);
++
+ /* XXX should be part of the Bus interface. */
+ void	xhci_abort_xfer(struct usbd_xfer *, usbd_status);
+ void	xhci_pipe_close(struct usbd_pipe *);
+@@ -2441,6 +2445,103 @@ xhci_root_ctrl_transfer(struct usbd_xfer
+ 	return (xhci_root_ctrl_start(SIMPLEQ_FIRST(&xfer->pipe->queue)));
+ }
+ 
++#define XHCI_PORT_RESET_STEP		5
++#define XHCI_PORT_RESET_TIMEOUT		500
++
++usbd_status
++xhci_port_wait_bit(struct xhci_softc *sc, uint32_t port, uint32_t bit)
++{
++	int i;
++
++	for (i = 0; i < XHCI_PORT_RESET_TIMEOUT; i += XHCI_PORT_RESET_STEP) {
++		usb_delay_ms(&sc->sc_bus, XHCI_PORT_RESET_STEP);
++		if (XOREAD4(sc, port) & bit)
++			return (USBD_NORMAL_COMPLETION);
++	}
++	return (USBD_TIMEOUT);
++}
++
++usbd_status
++xhci_port_wait_u0(struct xhci_softc *sc, uint32_t port)
++{
++	int i;
++
++	for (i = 0; i < XHCI_PORT_RESET_TIMEOUT; i += XHCI_PORT_RESET_STEP) {
++		if (XHCI_PS_GET_PLS(XOREAD4(sc, port)) == UPS_PORT_LS_U0)
++			return (USBD_NORMAL_COMPLETION);
++		usb_delay_ms(&sc->sc_bus, XHCI_PORT_RESET_STEP);
++	}
++	return (USBD_TIMEOUT);
++}
++
++usbd_status
++xhci_reset_port(struct xhci_softc *sc, int index)
++{
++	uint32_t port = XHCI_PORTSC(index);
++	uint32_t v;
++	usbd_status err;
++
++	v = (XOREAD4(sc, port) & ~XHCI_PS_CLEAR) | XHCI_PS_PR;
++	XOWRITE4(sc, port, v);
++
++	err = xhci_port_wait_bit(sc, port, XHCI_PS_PRC);
++	if (err) {
++		printf("%s: port %d reset timed out (portsc=0x%08x)\n",
++		    DEVNAME(sc), index, XOREAD4(sc, port));
++		return (err);
++	}
++
++	err = xhci_port_wait_u0(sc, port);
++	if (err == USBD_NORMAL_COMPLETION)
++		return (err);
++
++	v = XOREAD4(sc, port);
++	if (XHCI_PS_GET_PLS(v) == UPS_PORT_LS_RX_DETECT) {
++		printf("%s: port %d disconnected during reset "
++		    "(portsc=0x%08x)\n", DEVNAME(sc), index, v);
++		return (USBD_IOERROR);
++	}
++
++	DPRINTF(("%s: port %d link never trained to U0 (portsc=0x%08x), "
++	    "power-cycling port\n", DEVNAME(sc), index, v));
++
++	v = XOREAD4(sc, port) & ~(XHCI_PS_CLEAR | XHCI_PS_PP);
++	XOWRITE4(sc, port, v);
++	usb_delay_ms(&sc->sc_bus, 100);
++
++	v = (XOREAD4(sc, port) & ~XHCI_PS_CLEAR) | XHCI_PS_PP;
++	XOWRITE4(sc, port, v);
++	usb_delay_ms(&sc->sc_bus, 100);
++
++	err = xhci_port_wait_bit(sc, port, XHCI_PS_CCS);
++	if (err) {
++		printf("%s: port %d no reconnect after power-cycle "
++		    "(portsc=0x%08x)\n", DEVNAME(sc), index,
++		    XOREAD4(sc, port));
++		return (USBD_IOERROR);
++	}
++
++	v = (XOREAD4(sc, port) & ~XHCI_PS_CLEAR) |
++	    XHCI_PS_CSC | XHCI_PS_PRC | XHCI_PS_PLC | XHCI_PS_WRC;
++	XOWRITE4(sc, port, v);
++
++	v = (XOREAD4(sc, port) & ~XHCI_PS_CLEAR) | XHCI_PS_PR;
++	XOWRITE4(sc, port, v);
++
++	err = xhci_port_wait_bit(sc, port, XHCI_PS_PRC);
++	if (err) {
++		printf("%s: port %d reset after power-cycle timed out "
++		    "(portsc=0x%08x)\n", DEVNAME(sc), index,
++		    XOREAD4(sc, port));
++		return (err);
++	}
++
++	DPRINTF(("%s: port %d portsc=0x%08x after power-cycle reset\n",
++		DEVNAME(sc), index, XOREAD4(sc, port)));
++
++	return (USBD_NORMAL_COMPLETION);
++}
++
+ usbd_status
+ xhci_root_ctrl_start(struct usbd_xfer *xfer)
+ {
+@@ -2759,7 +2860,9 @@ xhci_root_ctrl_start(struct usbd_xfer *x
+ 			break;
+ 		case UHF_PORT_RESET:
+ 			DPRINTFN(6, ("reset port %d\n", index));
+-			XOWRITE4(sc, port, v | XHCI_PS_PR);
++			err = xhci_reset_port(sc, index);
++			if (err)
++				goto ret;
+ 			break;
+ 		case UHF_PORT_POWER:
+ 			DPRINTFN(3, ("set port power %d\n", index));

@@ -1,0 +1,7 @@
+{
+    "colorscheme": "darker-horizon-tc",
+    "lsp.server": "c++=clangd,c=clangd",
+    "lsp.formatOnSave": false,
+    "lsp.tabcompletion": true,
+    "tabsize": 8
+}
