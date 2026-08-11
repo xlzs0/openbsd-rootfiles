@@ -1,0 +1,5 @@
+#!/bin/sh
+
+cd / || exit 1
+git ls-files -z | xargs -0 stat -f '%OLp %Su %Sg %N' > .meta
+git add .meta

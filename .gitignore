@@ -1,9 +1,14 @@
 *
 !/.gitignore
+!/.githooks
+!/.githooks/*
+!/.meta
 !/etc
 !/etc/doas.conf
 !/etc/hostname.re0
 !/etc/hosts
+!/etc/hotplug
+!/etc/hotplug/attach
 !/etc/installurl
 !/etc/login.conf
 !/etc/mk.conf

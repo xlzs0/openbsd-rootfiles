@@ -1,11 +1,12 @@
-sndiod_flags=-f rsnd/0 -f rsnd/1
 cron_flags=NO
 dhcpleased_flags=NO
+hotplugd_flags=
 ntpd_flags=NO
 pflogd_flags=NO
 resolvd_flags=NO
 slaacd_flags=NO
 smtpd_flags=NO
+sndiod_flags=-f rsnd/0 -f rsnd/1
 sshd_flags=NO
 syslogd_flags=NO
 xenodm_flags=

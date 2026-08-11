@@ -1,0 +1,9 @@
+#!/bin/sh
+DEVCLASS=$1
+DEVNAME=$2
+
+case "$DEVCLASS-$DEVNAME" in
+0-uaudio0*)
+	sndioctl -q -f rsnd/0 output.level=0.4
+	;;
+esac

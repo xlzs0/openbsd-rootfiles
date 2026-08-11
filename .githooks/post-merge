@@ -1,0 +1,11 @@
+#!/bin/sh
+
+cd / || exit 1
+[ -f .meta ] || exit 0
+
+while read -r mode owner group path; do
+	[ -h "$path" ] && continue
+	[ -e "$path" ] || continue
+	chown "$owner:$group" "$path"
+	chmod "$mode" "$path"
+done < .meta

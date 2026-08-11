@@ -2,9 +2,9 @@
 
 . $HOME/.envrc
 
-xrandr --output DisplayPort-0 --primary --rate 75 --mode 1920x1080 --set TearFree on
-xrandr --output DisplayPort-1 --primary --rate 75 --mode 1920x1080 --set TearFree on
-xrandr --output DisplayPort-2 --primary --rate 75 --mode 1920x1080 --set TearFree on
+for p in 0 1 2; do
+	xrandr --output DisplayPort-$p --primary --rate 75 --mode 1920x1080 --set TearFree on
+done
 
 xrdb ~/.Xresources
 xsetroot -solid black
