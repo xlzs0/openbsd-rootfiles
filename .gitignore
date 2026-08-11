@@ -47,3 +47,11 @@
 !/home/xlzs0/kernel_patches
 !/home/xlzs0/kernel_patches/uaudio-fixes.diff
 !/home/xlzs0/kernel_patches/xhci-reset-fix.diff
+!/usr
+!/usr/ports
+!/usr/ports/mystuff
+!/usr/ports/mystuff/x11
+!/usr/ports/mystuff/x11/dwm
+!/usr/ports/mystuff/x11/dwm/**
+!/usr/ports/mystuff/x11/st
+!/usr/ports/mystuff/x11/st/**

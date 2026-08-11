@@ -1,0 +1,8 @@
+st is a simple virtual terminal emulator for X which sucks less.
+
+Flavour:
+	anysize	    - fill the whole window, centering the terminal
+		      grid instead of leaving a gap at the edges
+	scrollback  - ring-buffer scrollback rendered by offsetting
+		      the view (shift+pgup/pgdn, mouse wheel), and
+		      the scrollback_lines knob in config.h

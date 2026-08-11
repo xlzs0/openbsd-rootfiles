@@ -1,0 +1,80 @@
+Index: dwm.c
+--- dwm.c.orig
++++ dwm.c
+@@ -27,7 +27,10 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <time.h>
+ #include <unistd.h>
++#include <sys/select.h>
++#include <sys/time.h>
+ #include <sys/types.h>
+ #include <sys/wait.h>
+ #include <X11/cursorfont.h>
+@@ -1186,9 +1189,7 @@
+ 	Window trans;
+ 	XPropertyEvent *ev = &e->xproperty;
+ 
+-	if ((ev->window == root) && (ev->atom == XA_WM_NAME))
+-		updatestatus();
+-	else if (ev->state == PropertyDelete)
++	if (ev->state == PropertyDelete)
+ 		return; /* ignore */
+ 	else if ((c = wintoclient(ev->window))) {
+ 		switch(ev->atom) {
+@@ -1344,11 +1345,31 @@
+ run(void)
+ {
+ 	XEvent ev;
++	int xfd = ConnectionNumber(dpy);
++	fd_set rfds;
++	struct timeval now, tv;
++
+ 	/* main event loop */
+ 	XSync(dpy, False);
+-	while (running && !XNextEvent(dpy, &ev))
+-		if (handler[ev.type])
+-			handler[ev.type](&ev); /* call handler */
++	while (running) {
++		while (XPending(dpy)) {
++			XNextEvent(dpy, &ev);
++			if (handler[ev.type])
++				handler[ev.type](&ev); /* call handler */
++		}
++		FD_ZERO(&rfds);
++		FD_SET(xfd, &rfds);
++		gettimeofday(&now, NULL);
++		tv.tv_sec = 0;
++		tv.tv_usec = 1000000 - now.tv_usec + 1000;
++		if (tv.tv_usec >= 1000000) {
++			tv.tv_sec = 1;
++			tv.tv_usec -= 1000000;
++		}
++		if (select(xfd + 1, &rfds, NULL, NULL, &tv) < 0 && errno != EINTR)
++			die("dwm: select failed:");
++		updatestatus();
++	}
+ }
+ 
+ void
+@@ -1966,9 +1987,16 @@
+ void
+ updatestatus(void)
+ {
+-	if (!gettextprop(root, XA_WM_NAME, stext, sizeof(stext)))
+-		strcpy(stext, "dwm-"VERSION);
+-	drawbar(selmon);
++	char buf[sizeof stext];
++	time_t t = time(NULL);
++	struct tm *tm = localtime(&t);
++
++	if (!tm || !strftime(buf, sizeof buf, "%Y-%m-%d %R:%S", tm))
++		strcpy(buf, "dwm-"VERSION);
++	if (strcmp(buf, stext)) {
++		strcpy(stext, buf);
++		drawbar(selmon);
++	}
+ }
+ 
+ void
