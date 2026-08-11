@@ -7,6 +7,7 @@
 755 root wheel .githooks/setup.sh
 644 root wheel .gitignore
 644 root wheel .meta
+644 root wheel .pkg
 755 root wheel etc
 755 root wheel etc/X11
 755 root wheel etc/X11/xenodm

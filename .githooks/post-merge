@@ -9,3 +9,7 @@ while read -r mode owner group path; do
 	chown "$owner:$group" "$path"
 	chmod "$mode" "$path"
 done < .meta
+
+if [ -s .pkg ] && ! pkg_info -mz | cmp -s - .pkg; then
+	pkg_add -I -x -l .pkg
+fi

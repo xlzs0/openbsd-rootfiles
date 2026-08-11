@@ -1,5 +1,6 @@
 #!/bin/sh
 
 cd / || exit 1
+pkg_info -mz > .pkg
 git ls-files | awk -F/ '{p="";for(i=1;i<NF;i++){p=p $i;print p;p=p "/"}print}' | LC_ALL=C sort -u | tr '\n' '\0' | xargs -0 stat -f '%OLp %Su %Sg %N' > .meta
 git add .meta

@@ -3,6 +3,7 @@
 !/.githooks
 !/.githooks/*
 !/.meta
+!/.pkg
 !/etc
 !/etc/doas.conf
 !/etc/hostname.re0
