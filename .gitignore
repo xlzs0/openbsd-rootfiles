@@ -50,8 +50,4 @@
 !/usr
 !/usr/ports
 !/usr/ports/mystuff
-!/usr/ports/mystuff/x11
-!/usr/ports/mystuff/x11/dwm
-!/usr/ports/mystuff/x11/dwm/**
-!/usr/ports/mystuff/x11/st
-!/usr/ports/mystuff/x11/st/**
+!/usr/ports/mystuff/**
